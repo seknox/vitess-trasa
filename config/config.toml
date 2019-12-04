@@ -1,0 +1,45 @@
+# TRASA config file
+
+[trasa]
+#server = "https://api.trasa.seknox.com"
+server = "http://localhost:3339"
+dashboard = "trasa.sekox.com"
+appID="6fb9f6ec-8db4-4f4a-8de5-3fec749cb05c"
+appSecret="c5f3a7025987a711b790155ee6abc12a7d"
+orgID="6c09305f-4080-47f3-b66a-fe4dd4efb827"
+
+[database]
+server = "crdb01.trasa.seknox.com"  # change this ip address to point to your cockroachdb instance
+port = "26257"
+dbname = "trasadb"
+dbuser = "trasauser"
+
+
+[redis]
+server = "192.168.56.101"
+port = "6379"
+
+
+[elastic]
+server = "https://elastic.trasa.seknox.com"
+username="trasa-elastic-user"
+password="r$5%Ru1sd8*!&m#v"
+#password="O8vim$gX@P&TbZ!!gIU12&#mgaKSgZ"
+port = "443"
+
+[minio]
+server="127.0.0.1:9000"
+key = "UIEYDM2IL9BFW1VT7O7S"
+secret = "TrbHCXwuAiTRGGksnrHoszXWLx4Z6a+HVIBktn2P"
+useSSL = false
+
+
+[timezone]
+location = "Asia/Kathmandu"
+
+[logging]
+path = "/var/log/trasa"
+#error = "/var/log/trasa/error.log"
+
+#"10.142.0.4"
+#"192.168.56.101"
