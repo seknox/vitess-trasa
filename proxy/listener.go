@@ -1,23 +1,24 @@
 package proxy
 
 import (
-	"vitess.io/vitess/go/mysql"
+	"gitlab.com/seknox/trasa/trasadbproxy/dbstore"
+	"gitlab.com/seknox/trasa/trasadbproxy/vitess/go/mysql"
 )
 
 func StartListner() {
 
-	//dbstore.DBState.Init()
+	dbstore.DBState.Init()
 
 	handler := NewProxyHandler()
 
-	//authServer := mysql.NewAuthServerStatic()
+	authServer := NewTrasaAuthServer()
 	//authServer.Method = mysql.MysqlNativePassword
 	//authServer.Entries["root"] = []*mysql.AuthServerStaticEntry{
 	//	{Password: "password"},
 	//}
 
-	authServer := NewTrasaAuthServer()
-	authServer.Method = mysql.MysqlNativePassword
+	//authServer := NewTrasaAuthServer()
+	authServer.Method = mysql.MysqlClearPassword
 
 	l, err := mysql.NewListener("tcp", "127.0.0.1:1999", authServer, handler, 0, 0)
 
@@ -30,8 +31,8 @@ func StartListner() {
 	//		panic("TLSServerConfig failed:  "+err.Error())
 	//	}
 	//
-	//	l.AllowClearTextWithoutTLS=true
-	//l.RequireSecureTransport=false
+	l.AllowClearTextWithoutTLS = true
+	l.RequireSecureTransport = false
 	//serverConfig.InsecureSkipVerify=true
 	//	l.TLSConfig=serverConfig
 

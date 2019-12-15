@@ -4,8 +4,10 @@ import (
 	minio "github.com/minio/minio-go"
 	"github.com/olivere/elastic"
 	geoip2 "github.com/oschwald/geoip2-golang"
+	"gitlab.com/seknox/trasa/trasadbproxy/vitess/go/mysql"
 	"net"
-	"vitess.io/vitess/go/vt/proto/query"
+	"os"
+	"time"
 )
 
 type DBCONN struct {
@@ -31,6 +33,9 @@ type AppLogin struct {
 	DynamicAuthApp  bool   `json:"dynamicAuthApp"`
 	IsSharedSession bool   `json:"isSharedSession"`
 	AppType         string `json:"appType"`
+	ClientIP        string `json:"clientIP"`
+	OrgID           string `json:"orgID"`
+	TrasaID         string `json:"trasaID"`
 }
 
 type AppUser struct {
@@ -134,22 +139,7 @@ type ProxyMedata struct {
 	SessionID     string
 	Username      string
 	ClientVersion string
-}
-
-type TrasaUserData struct {
-	username string
-	hostname string
-	trasaID  string
-	totp     string
-}
-
-func (tud *TrasaUserData) Get() *query.VTGateCallerID {
-	a := query.VTGateCallerID{
-		Username:             "",
-		Groups:               nil,
-		XXX_NoUnkeyedLiteral: struct{}{},
-		XXX_unrecognized:     nil,
-		XXX_sizecache:        0,
-	}
-	return &a
+	TempLogFile   *os.File
+	UpstreamConn  *mysql.Conn
+	LoginTime     time.Time
 }

@@ -17,7 +17,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -41,6 +40,8 @@ func (dbConn *DBCONN) Init() {
 	dbConn.sshPort = viper.GetString("sshproxy.port")
 
 	dbConn.trasaServer = viper.GetString("trasa.server")
+
+	fmt.Println(dbConn.trasaServer)
 
 	dbConn.orgId = viper.GetString("trasa.orgID")
 	dbConn.appID = viper.GetString("trasa.appID")
@@ -110,35 +111,32 @@ func (dbConn *DBCONN) Init() {
 }
 
 //sends u2f push notification and returns "success" or "failed"
-func (dbConn *DBCONN) AuthenticateU2F(uname string, appID string, clientAddr net.Addr, totp, sessionID, csrfToken string, dynamicAuthApp bool) (*GuacResponse, error) {
-	fmt.Println(appID, dynamicAuthApp)
+func (dbConn *DBCONN) AuthenticateU2F(username, hostname, trasaID, totp string, clientAddr net.Addr) (*GuacResponse, error) {
 
 	var cred AppLogin
 	var trasaResp TrasaResponse
-	cred.User = uname
-	cred.DynamicAuthApp = dynamicAuthApp
-	cred.IsSharedSession = false
+	cred.User = username
+	cred.TrasaID = trasaID
 	cred.TotpCode = totp
-	cred.AppType = "ssh"
+	cred.AppType = "db"
 	if totp == "" {
 		cred.TfaMethod = "u2f"
 	} else {
 		cred.TfaMethod = "totp"
 	}
 	//cred.Password = pass
-	cred.AppID = appID
+	cred.AppID = hostname
+	cred.OrgID = dbConn.orgId
 	//cred.AppSecret = dbConn.appSecret
 	clientIP, _, err := net.SplitHostPort(clientAddr.String())
-
+	cred.ClientIP = clientIP
 	mars, _ := json.Marshal(&cred)
 
 	//fmt.Println(string(mars))
 
-	url := dbConn.trasaServer + "/api/v1/remote/auth/httptunnel/" + clientIP //"http://192.168.0.100:3339/api/v1/remote/auth"
+	url := dbConn.trasaServer + "/api/v1/remote/auth/db" //+ clientIP //"http://192.168.0.100:3339/api/v1/remote/auth"
 	fmt.Println(url)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(mars))
-	req.Header.Set("X-SESSION", sessionID)
-	req.Header.Set("X-CSRF", csrfToken)
 	if err != nil {
 		fmt.Printf("error sending request %s\n", err)
 	}
@@ -157,20 +155,25 @@ func (dbConn *DBCONN) AuthenticateU2F(uname string, appID string, clientAddr net
 
 	fmt.Printf("resp body was: %s\n", string(body))
 
-	json.Unmarshal([]byte(body), &trasaResp)
+	err = json.Unmarshal([]byte(body), &trasaResp)
+	if err != nil {
+		fmt.Println("invalid response from trasa server")
+		return nil, errors.New("Failed to authenticate 2fa")
+	}
+
 	//fmt.Printf("status was: %s\n", result.Password)
-	if trasaResp.Status == "success" {
+	if trasaResp.Status == "success" && len(trasaResp.Data) == 1 {
 		return &trasaResp.Data[0], nil
 	} else {
 		//fmt.Println(string(body))
-		return nil, errors.New("failed")
+		return nil, errors.New("Failed to authenticate 2fa")
 	}
 }
 
-func (dbConn *DBCONN) LogSession(file *os.File, proxyMeta ProxyMedata, loginTime time.Time, success bool) (err error) {
+func (dbConn *DBCONN) LogSession(proxyMeta ProxyMedata, success bool) (err error) {
 
-	bucketName := "trasa-ssh-logs"
-	objectNamePrefix := dbConn.orgId + "/" + strconv.Itoa(loginTime.Year()) + "/" + strconv.Itoa(int(loginTime.Month())) + "/" + strconv.Itoa(loginTime.Day()) + "/"
+	bucketName := "trasa-db-logs"
+	objectNamePrefix := dbConn.orgId + "/" + strconv.Itoa(proxyMeta.LoginTime.Year()) + "/" + strconv.Itoa(int(proxyMeta.LoginTime.Month())) + "/" + strconv.Itoa(proxyMeta.LoginTime.Day()) + "/"
 	if err != nil {
 		objectNamePrefix = "mistake"
 	}
@@ -189,10 +192,10 @@ func (dbConn *DBCONN) LogSession(file *os.File, proxyMeta ProxyMedata, loginTime
 	log.Printf("Successfully created %s\n", bucketName)
 	*/
 
-	if success && file != nil {
+	if success && proxyMeta.TempLogFile != nil {
 		// Upload the zip file
-		objectName := objectNamePrefix + file.Name()
-		filePath := file.Name()
+		objectName := objectNamePrefix + proxyMeta.TempLogFile.Name()
+		filePath := proxyMeta.TempLogFile.Name()
 		contentType :=
 
 			"text/plain"
@@ -203,7 +206,6 @@ func (dbConn *DBCONN) LogSession(file *os.File, proxyMeta ProxyMedata, loginTime
 			log.Println(err)
 			return err
 		}
-
 		log.Printf("Successfully uploaded %s of size %d\n  to minio", objectName, n)
 
 	}
@@ -231,12 +233,12 @@ func (dbConn *DBCONN) LogSession(file *os.File, proxyMeta ProxyMedata, loginTime
 	fmt.Println(err)
 
 	if err != nil {
-		fmt.Println("Failed to parse remote ip in LogLogin sshproxy")
+		fmt.Println("Failed to parse remote ip in LogLogin dbproxy")
 	}
 
 	var log LogLogin
 	log.EventID = hex.EncodeToString(eventID)
-	log.Endpoint = "ssh"
+	log.Endpoint = "db"
 	log.SessionID = proxyMeta.SessionID
 	log.OrgID = dbConn.orgId
 	log.UserID = proxyMeta.UserID //"330a43d-739b-489c-92a8"//conMeta.User()
@@ -255,7 +257,7 @@ func (dbConn *DBCONN) LogSession(file *os.File, proxyMeta ProxyMedata, loginTime
 	log.GeoLocation.Location = []float64{locations.Location.Longitude, locations.Location.Latitude}
 	//log.GeoLocation.Location[1]= locations.Location.Latitude
 	log.Status = success
-	log.LoginTime = loginTime.In(nep).Format(time.RFC3339)
+	log.LoginTime = proxyMeta.LoginTime.In(nep).Format(time.RFC3339)
 	log.LogoutTime = time.Now().In(nep).Format(time.RFC3339)
 	log.FailedReason = ""
 

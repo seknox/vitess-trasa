@@ -29,8 +29,8 @@ port = "443"
 
 [minio]
 server="127.0.0.1:9000"
-key = "UIEYDM2IL9BFW1VT7O7S"
-secret = "TrbHCXwuAiTRGGksnrHoszXWLx4Z6a+HVIBktn2P"
+key = "H3LEUF63KP4TMCHCUJH6"
+secret = "qBbkRv1QQ0s8dgA8GSgVlnqFmPgWxFgx0TyHIQyr"
 useSSL = false
 
 
