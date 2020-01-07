@@ -75,10 +75,20 @@ func (th *proxyHandler) ComQuery(c *mysql.Conn, q string, callback func(*sqltype
 
 	//execute and fetch result
 	ps, err := upstreamConn.ExecuteFetch(q, 1000, true)
-	if err != nil {
-		fmt.Println("exe err_____________", err, "__END")
-		return err
-	}
+	//if err != nil {
+	//	fmt.Println("exe err_____________", err, "__END")
+	//	err= callback(&sqltypes.Result{
+	//		Fields:       nil,
+	//		RowsAffected: 0,
+	//		InsertID:     0,
+	//		Rows:         nil,
+	//		Extras:       nil,
+	//	})
+	//	if(err!=nil){
+	//		return nil
+	//	}
+	//	return err
+	//}
 	if ps == nil {
 		return callback(&sqltypes.Result{
 			Fields:       nil,
@@ -91,13 +101,13 @@ func (th *proxyHandler) ComQuery(c *mysql.Conn, q string, callback func(*sqltype
 	}
 
 	//send result from upstream server to client
-	err = callback(ps)
-	if err != nil {
+	errCallback := callback(ps)
+	if errCallback != nil {
 		fmt.Println("callback err__________", err)
-		return err
+		return errCallback
 	}
 
-	return nil
+	return err
 }
 
 func (th *proxyHandler) ComPrepare(c *mysql.Conn, q string) ([]*querypb.Field, error) {
@@ -121,6 +131,8 @@ func (th *proxyHandler) WarningCount(c *mysql.Conn) uint16 {
 
 func (th *proxyHandler) InitTrasaAuth(c *mysql.Conn, salt []byte, user string, authResponse []byte, clearPassword string) error {
 	fmt.Println("______________InitTrasa__________", c.ConnectionID, c.ID())
+
+	fmt.Println(clearPassword)
 
 	var proxyMeta dbstore.ProxyMedata
 
@@ -155,12 +167,12 @@ func (th *proxyHandler) InitTrasaAuth(c *mysql.Conn, salt []byte, user string, a
 
 	//Create upstream connection
 	params := mysql.ConnParams{
-		Host:       hostname,
-		Port:       3306,
-		Uname:      username,
-		Pass:       clearPassword,
-		Flavor:     "mariadb",
-		ServerName: "localhost",
+		Host:  hostname,
+		Port:  3306,
+		Uname: username,
+		Pass:  clearPassword,
+		//	Flavor:     "mariadb",
+		//	ServerName: "localhost",
 	}
 
 	//if password is retrived from vault use it

@@ -20,7 +20,7 @@ type DBCONN struct {
 	appID           string
 	appSecret       string
 	trasaServer     string
-	sshPort         string
+	ListenAddr      string
 }
 
 type AppLogin struct {
@@ -36,6 +36,7 @@ type AppLogin struct {
 	ClientIP        string `json:"clientIP"`
 	OrgID           string `json:"orgID"`
 	TrasaID         string `json:"trasaID"`
+	Hostname        string `json:"hostname"`
 }
 
 type AppUser struct {

@@ -29,7 +29,7 @@ func (dbConn *DBCONN) Init() {
 	//var dbConn DBCONN
 
 	viper.SetConfigName("config")
-	absPath, _ := filepath.Abs("config/")
+	absPath, _ := filepath.Abs("/etc/trasa/config/")
 	viper.AddConfigPath(absPath)
 	fmt.Println(viper.ConfigFileUsed())
 
@@ -37,17 +37,17 @@ func (dbConn *DBCONN) Init() {
 	if err != nil {
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
-	dbConn.sshPort = viper.GetString("sshproxy.port")
+	dbConn.ListenAddr = viper.GetString("dbproxy.listenAddr")
 
 	dbConn.trasaServer = viper.GetString("trasa.server")
 
-	fmt.Println(dbConn.trasaServer)
+	//fmt.Println(dbConn.trasaServer)
 
 	dbConn.orgId = viper.GetString("trasa.orgID")
 	dbConn.appID = viper.GetString("trasa.appID")
 	dbConn.appSecret = viper.GetString("trasa.appSecret")
 
-	elasticHostName := viper.GetString("elastic.server")
+	elasticHostName := viper.GetStringSlice("elastic.server")
 	elasticPass := viper.GetString("elastic.password")
 	elasticUser := viper.GetString("elastic.username")
 
@@ -68,7 +68,7 @@ func (dbConn *DBCONN) Init() {
 	//_=insecure
 
 	dbConn.elasticClient, err = elastic.NewClient(
-		elastic.SetURL(elasticHostName),
+		elastic.SetURL(elasticHostName...),
 		elastic.SetHttpClient(insecure),
 		elastic.SetSniff(false),
 		//elastic.SetSnifferTimeout(1000000000000000000),
@@ -81,7 +81,7 @@ func (dbConn *DBCONN) Init() {
 	if err != nil {
 		panic(err)
 	}
-	if _, err := dbConn.elasticClient.ElasticsearchVersion(elasticHostName); err != nil {
+	if _, err := dbConn.elasticClient.ElasticsearchVersion(elasticHostName[0]); err != nil {
 		panic("error")
 	} else {
 		//fmt.Println("Elastic version " + ver)
@@ -94,16 +94,16 @@ func (dbConn *DBCONN) Init() {
 
 	}
 
-	exists, err := dbConn.minioClient.BucketExists("trasa-ssh-logs")
+	exists, err := dbConn.minioClient.BucketExists("trasa-db-logs")
 	if err != nil {
 		panic(err)
 	}
 
 	if !exists {
-		dbConn.minioClient.MakeBucket("trasa-ssh-logs", "")
+		dbConn.minioClient.MakeBucket("trasa-db-logs", "")
 	}
 
-	dbConn.geoDB, err = geoip2.Open("static/GeoLite2-City.mmdb")
+	dbConn.geoDB, err = geoip2.Open("/etc/trasa/static/GeoLite2-City.mmdb")
 	if err != nil {
 		panic(err)
 	}
@@ -125,7 +125,7 @@ func (dbConn *DBCONN) AuthenticateU2F(username, hostname, trasaID, totp string, 
 		cred.TfaMethod = "totp"
 	}
 	//cred.Password = pass
-	cred.AppID = hostname
+	cred.Hostname = hostname
 	cred.OrgID = dbConn.orgId
 	//cred.AppSecret = dbConn.appSecret
 	clientIP, _, err := net.SplitHostPort(clientAddr.String())
