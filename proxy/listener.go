@@ -21,7 +21,7 @@ func StartListner() {
 	//authServer := NewTrasaAuthServer()
 	authServer.Method = mysql.MysqlClearPassword
 
-	l, err := mysql.NewListener("tcp", dbstore.DBState.ListenAddr, authServer, handler, 0, 0)
+	l, err := mysql.NewListener("tcp", dbstore.DBState.ListenAddr, authServer, handler, 0, 0, false)
 
 	if err != nil {
 		panic(err)
@@ -35,8 +35,11 @@ func StartListner() {
 	if err != nil {
 		panic("TLSServerConfig failed:  " + err.Error())
 	}
-
-	l.AllowClearTextWithoutTLS = true
+	//
+	//t:=sync2.AtomicBool{}
+	//t.Set(true)
+	//l.AllowClearTextWithoutTLS =t
+	l.AllowClearTextWithoutTLS.Set(true)
 	l.RequireSecureTransport = false
 	serverConfig.InsecureSkipVerify = true
 	l.TLSConfig = serverConfig

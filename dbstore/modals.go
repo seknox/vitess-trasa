@@ -88,18 +88,14 @@ type LogLogin struct {
 		TimeZone       string    `json:"timeZone"`
 		Location       []float64 `json:"location"`
 	} `json:"geoLocation"`
-	LoginMethod     string   `json:"loginMethod"`
-	Status          bool     `json:"status"`
-	MarkedAs        string   `json:"markedAs"`
-	LoginTime       string   `json:"loginTime"`
-	LogoutTime      string   `json:"logoutTime"`
-	SessionDuration string   `json:"sessionDuration"`
-	FailedReason    string   `json:"failedReason"`
-	Extra1          string   `json:"extra1"`
-	Extra2          []string `json:"extra2"`
-	Extra3          string   `json:"extra3"`
-	Extra4          string   `json:"extra4"`
-	Extra5          bool     `json:"extra5"`
+	LoginMethod     string `json:"loginMethod"`
+	Status          bool   `json:"status"`
+	MarkedAs        string `json:"markedAs"`
+	LoginTime       int64  `json:"loginTime"`
+	LogoutTime      int64  `json:"logoutTime"`
+	SessionDuration string `json:"sessionDuration"`
+	FailedReason    string `json:"failedReason"`
+	RecordedSession bool   `json:"recordedSession"`
 }
 
 type TrasaResponse struct {
@@ -140,6 +136,7 @@ type ProxyMedata struct {
 	SessionID     string
 	Username      string
 	ClientVersion string
+	SessionRecord bool
 	TempLogFile   *os.File
 	UpstreamConn  *mysql.Conn
 	LoginTime     time.Time

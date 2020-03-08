@@ -2,7 +2,6 @@ package dbstore
 
 import (
 	"bytes"
-	"context"
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/hex"
@@ -10,8 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/minio/minio-go"
-	"github.com/olivere/elastic"
 	"github.com/oschwald/geoip2-golang"
+	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"io/ioutil"
 	"log"
@@ -39,17 +38,17 @@ func (dbConn *DBCONN) Init() {
 	}
 	dbConn.ListenAddr = viper.GetString("dbproxy.listenAddr")
 
-	dbConn.trasaServer = viper.GetString("trasa.server")
+	dbConn.trasaServer = viper.GetString("trasa.trasacore")
 
 	//fmt.Println(dbConn.trasaServer)
 
 	dbConn.orgId = viper.GetString("trasa.orgID")
 	dbConn.appID = viper.GetString("trasa.appID")
 	dbConn.appSecret = viper.GetString("trasa.appSecret")
-
-	elasticHostName := viper.GetStringSlice("elastic.server")
-	elasticPass := viper.GetString("elastic.password")
-	elasticUser := viper.GetString("elastic.username")
+	//
+	//elasticHostName := viper.GetStringSlice("elastic.server")
+	//elasticPass := viper.GetString("elastic.password")
+	//elasticUser := viper.GetString("elastic.username")
 
 	minioHostName := viper.GetString("minio.server")
 	//minioAccessKeyID := "250PUJKB2AZ436RFO2T1"
@@ -65,27 +64,7 @@ func (dbConn *DBCONN) Init() {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
-	//_=insecure
-
-	dbConn.elasticClient, err = elastic.NewClient(
-		elastic.SetURL(elasticHostName...),
-		elastic.SetHttpClient(insecure),
-		elastic.SetSniff(false),
-		//elastic.SetSnifferTimeout(1000000000000000000),
-		elastic.SetHealthcheckInterval(30*time.Second),
-		elastic.SetBasicAuth(elasticUser, elasticPass),
-		elastic.SetHealthcheckTimeout(time.Second*18),
-		elastic.SetHealthcheck(true),
-	)
-
-	if err != nil {
-		panic(err)
-	}
-	if _, err := dbConn.elasticClient.ElasticsearchVersion(elasticHostName[0]); err != nil {
-		panic("error")
-	} else {
-		//fmt.Println("Elastic version " + ver)
-	}
+	_ = insecure
 
 	// Initialize minio client object.
 	dbConn.minioClient, err = minio.New(minioHostName, minioAccessKeyID, minioSecretAccessKey, useSSL)
@@ -141,9 +120,11 @@ func (dbConn *DBCONN) AuthenticateU2F(username, hostname, trasaID, totp string, 
 		fmt.Printf("error sending request %s\n", err)
 	}
 
-	fmt.Printf("request sent was: %s\n", req.RequestURI)
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
 
-	client := &http.Client{}
+	client := &http.Client{Transport: tr}
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Println(err)
@@ -211,7 +192,6 @@ func (dbConn *DBCONN) LogSession(proxyMeta ProxyMedata, success bool) (err error
 	}
 	//TODO complete logging to elastic
 
-	nep, _ := time.LoadLocation("Asia/Kathmandu")
 	//ip = net.ParseIP(ip)
 	locations, err := dbConn.geoDB.City(net.ParseIP(proxyMeta.ClientAddr.String()))
 	//fmt.Println(conMeta.RemoteAddr(),conMeta.LocalAddr())
@@ -219,8 +199,6 @@ func (dbConn *DBCONN) LogSession(proxyMeta ProxyMedata, success bool) (err error
 		fmt.Println("ip not found")
 	}
 
-	fmt.Println(locations)
-	ctx := context.Background()
 	eventID := make([]byte, 5)
 	_, err = rand.Read(eventID)
 	if err != nil {
@@ -257,19 +235,56 @@ func (dbConn *DBCONN) LogSession(proxyMeta ProxyMedata, success bool) (err error
 	log.GeoLocation.Location = []float64{locations.Location.Longitude, locations.Location.Latitude}
 	//log.GeoLocation.Location[1]= locations.Location.Latitude
 	log.Status = success
-	log.LoginTime = proxyMeta.LoginTime.In(nep).Format(time.RFC3339)
-	log.LogoutTime = time.Now().In(nep).Format(time.RFC3339)
+	log.LoginTime = proxyMeta.LoginTime.UnixNano()
+	log.LogoutTime = time.Now().UnixNano()
 	log.FailedReason = ""
+	log.RecordedSession = proxyMeta.SessionRecord
 
 	data, _ := json.Marshal(&log)
 	//fmt.Println(string(data))
 
-	putIndex, err := dbConn.elasticClient.Index().Index("orgloginsv1").Type("logins").Id(hex.EncodeToString(eventID)).BodyJson(string(data)).Do(ctx)
+	url := dbConn.trasaServer + "/api/v1/events/log" //" + clientIP //"http://192.168.0.100:3339/api/v1/remote/auth"
+	//fmt.Println(url)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
+
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("error sending request %s\n", err)
+	}
+
+	//      fmt.Printf("request sent was: %s\n", req.RequestURI)
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.Error(err)
 		return err
 	}
-	fmt.Println("Logged event", putIndex)
+	defer resp.Body.Close()
+
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	// fmt.Printf("resp body was: %s\n", string(body))
+	var trasaResp TrasaResponse
+	err = json.Unmarshal([]byte(body), &trasaResp)
+	if err != nil {
+		return errors.New("Invalid response")
+	}
+	if trasaResp.Status != "success" {
+		return errors.New(trasaResp.Reason)
+	} else {
+		logger.Debugf("Successfully logged authevent %s", log.EventID)
+	}
+
+	//
+	//putIndex, err := dbConn.elasticClient.Index().Index("orgloginsv1").Type("logins").Id(hex.EncodeToString(eventID)).BodyJson(string(data)).Do(ctx)
+	//if err != nil {
+	//	fmt.Println(err)
+	//	return err
+	//}
+	//fmt.Println("Logged event", putIndex)
 	//_ = putIndex
 
 	return nil
