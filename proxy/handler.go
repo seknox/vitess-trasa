@@ -41,9 +41,15 @@ func (th *proxyHandler) ConnectionClosed(c *mysql.Conn) {
 		upstreamConn.Close()
 	}
 
-	dbstore.DBState.LogSession(proxyMeta, true)
-	proxyMeta.TempLogFile.Close()
-	err := os.Remove(proxyMeta.TempLogFile.Name())
+	err := dbstore.DBState.LogSession(proxyMeta, true)
+	if err != nil {
+		logger.Error(err)
+	}
+	err = proxyMeta.TempLogFile.Close()
+	if err != nil {
+		logger.Error(err)
+	}
+	err = os.Remove(proxyMeta.TempLogFile.Name())
 	if err != nil {
 		logger.Error(err)
 	}
@@ -71,30 +77,33 @@ func (th *proxyHandler) ComQuery(c *mysql.Conn, q string, callback func(*sqltype
 
 	if th.connMap[c].SessionRecord {
 
-		tempLogFile.WriteString(q)
+		_, err := tempLogFile.WriteString(q)
+		if err != nil {
+			logger.Error(err)
+		}
 		tempLogFile.WriteString("\n_______________________________________________________________________________________________\n")
 
 	}
 	//execute and fetch result
-	ps, err := upstreamConn.ExecuteFetch(q, 1000, true)
+	ps, err := upstreamConn.ExecuteFetch(q, 10000, true)
 	if err != nil && ps == nil {
 		logger.Error(err)
 		return err
 	}
-	if err != nil {
-		logger.Debug(err)
-		err = callback(&sqltypes.Result{
-			Fields:       nil,
-			RowsAffected: 0,
-			InsertID:     0,
-			Rows:         nil,
-			Extras:       nil,
-		})
-		if err != nil {
-			return nil
-		}
-		return err
-	}
+	//if err != nil {
+	//	logger.Debug(err)
+	//	err = callback(&sqltypes.Result{
+	//		Fields:       nil,
+	//		RowsAffected: 0,
+	//		InsertID:     0,
+	//		Rows:         nil,
+	//		Extras:       nil,
+	//	})
+	//	if err != nil {
+	//		return nil
+	//	}
+	//	return err
+	//}
 	if ps == nil {
 		return callback(&sqltypes.Result{
 			Fields:       nil,
@@ -156,6 +165,7 @@ func (th *proxyHandler) InitTrasaAuth(c *mysql.Conn, salt []byte, user string, a
 	}
 	proxyMeta.Email = resp.Email
 	proxyMeta.AppName = resp.AppName
+	proxyMeta.AppID = resp.AppID
 	proxyMeta.UserID = resp.UserID
 	proxyMeta.SessionRecord = resp.SessionRecord
 

@@ -119,6 +119,7 @@ type GuacResponse struct {
 	UserID        string `json:"userID"`
 	Email         string `json:"email"`
 	AppName       string `json:"appName"`
+	AppID         string `json:"appID"`
 	Password      string `json:"password"`
 	Hostname      string `json:"hostname"`
 	Type          string `json:"type"`
