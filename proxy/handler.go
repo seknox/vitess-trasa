@@ -178,6 +178,7 @@ func (th *proxyHandler) InitTrasaAuth(c *mysql.Conn, salt []byte, user string, a
 		logger.Error(err)
 	}
 	proxyMeta.SessionID = sessionID
+	logger.Debug("session record ", proxyMeta.SessionRecord)
 
 	//Create upstream connection
 	params := mysql.ConnParams{

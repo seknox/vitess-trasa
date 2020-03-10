@@ -95,7 +95,7 @@ type LogLogin struct {
 	LogoutTime      int64  `json:"logoutTime"`
 	SessionDuration string `json:"sessionDuration"`
 	FailedReason    string `json:"failedReason"`
-	RecordedSession bool   `json:"recordedSession"`
+	RecordedSession bool   `json:"sessionRecord"`
 }
 
 type TrasaResponse struct {
