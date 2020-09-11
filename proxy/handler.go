@@ -161,7 +161,7 @@ func (th *proxyHandler) InitTrasaAuth(c *mysql.Conn, salt []byte, user string, c
 	proxyMeta.Username = username
 
 	//Authenticate to TRASA server and get credentials,sessionID,sessionRecord policy  based on hostname
-	resp, sessionRecord, sessionID, err := dbstore.DBState.AuthenticateU2F(username, hostname, trasaID, totp, c.RemoteAddr())
+	creds, sessionRecord, sessionID, err := dbstore.DBState.AuthenticateU2F(username, hostname, trasaID, totp, c.RemoteAddr())
 	if err != nil {
 		logger.Trace(err)
 		return err
@@ -183,8 +183,8 @@ func (th *proxyHandler) InitTrasaAuth(c *mysql.Conn, salt []byte, user string, c
 	}
 
 	//if password is retrived from vault use it
-	if resp.Password != "" {
-		params.Pass = resp.Password
+	if creds.Password != "" {
+		params.Pass = creds.Password
 	}
 
 	cc, err := mysql.Connect(context.Background(), &params)
