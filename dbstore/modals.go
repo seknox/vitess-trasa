@@ -2,7 +2,6 @@ package dbstore
 
 import (
 	minio "github.com/minio/minio-go/v7"
-	geoip2 "github.com/oschwald/geoip2-golang"
 	"github.com/seknox/trasadbproxy/vitess/go/mysql"
 	"net"
 	"os"
@@ -12,7 +11,6 @@ import (
 type DBCONN struct {
 	minioHostName      string
 	minioClient        *minio.Client
-	geoDB              *geoip2.Reader
 	orgId              string
 	insecureSkipVerify bool
 	trasaServer        string

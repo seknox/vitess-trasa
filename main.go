@@ -17,9 +17,9 @@ func main() {
 	flag.Parse()
 	level, err := logger.ParseLevel(*logLevel)
 	if err != nil {
-		fmt.Println(err)
+		logger.Error(err)
 	}
-	//fmt.Println(level, false)
+	//logger.Trace(level, false)
 
 	if *logOutputToFile {
 		f, err := os.OpenFile("/var/log/trasadbproxy.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
-	"github.com/oschwald/geoip2-golang"
 	"github.com/seknox/trasa/server/api/auth/serviceauth"
 	"github.com/seknox/trasa/server/models"
 	logger "github.com/sirupsen/logrus"
@@ -25,12 +24,9 @@ var DBState DBCONN
 
 func (dbConn *DBCONN) Init() {
 
-	//var dbConn DBCONN
-
 	viper.SetConfigName("config")
 	absPath, _ := filepath.Abs("/etc/trasa/config/")
 	viper.AddConfigPath(absPath)
-	fmt.Println(viper.ConfigFileUsed())
 
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -49,14 +45,7 @@ func (dbConn *DBCONN) Init() {
 	minioAccessKeyID := viper.GetString("minio.key")
 	minioSecretAccessKey := viper.GetString("minio.secret")
 	useSSL := viper.GetBool("minio.useSSL")
-	insecureSkipVerify := viper.GetBool("security.insecureSkipVerify")
-
-	insecure := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureSkipVerify},
-		},
-	}
-	_ = insecure
+	dbConn.insecureSkipVerify = viper.GetBool("security.insecureSkipVerify")
 
 	// Initialize minio client object.
 	dbConn.minioClient, err = minio.New(minioHostName, &minio.Options{
@@ -75,11 +64,6 @@ func (dbConn *DBCONN) Init() {
 
 	if !exists {
 		dbConn.minioClient.MakeBucket(context.Background(), "trasa-db-logs", minio.MakeBucketOptions{})
-	}
-
-	dbConn.geoDB, err = geoip2.Open("/etc/trasa/static/GeoLite2-City.mmdb")
-	if err != nil {
-		panic(err)
 	}
 
 }
@@ -104,15 +88,14 @@ func (dbConn *DBCONN) AuthenticateU2F(username, hostname, trasaID, totp string, 
 	//cred.Password = pass
 	cred.Hostname = hostname
 	cred.OrgID = dbConn.orgId
-	//cred.AppSecret = dbConn.appSecret
 	clientIP, _, err := net.SplitHostPort(clientAddr.String())
 	cred.UserIP = clientIP
 	mars, _ := json.Marshal(&cred)
 
-	//fmt.Println(string(mars))
+	//logger.Trace(string(mars))
 
 	url := fmt.Sprintf("https://%s/auth/agent/db", dbConn.trasaServer) //+ clientIP //"http://192.168.0.100:3339/api/v1/remote/auth"
-	fmt.Println(url)
+
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(mars))
 	if err != nil {
 		logger.Errorf("error sending request %v", err)
@@ -120,13 +103,13 @@ func (dbConn *DBCONN) AuthenticateU2F(username, hostname, trasaID, totp string, 
 	}
 
 	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: dbConn.insecureSkipVerify},
 	}
 
 	client := &http.Client{Transport: tr}
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err)
+		logger.Error(err)
 		return nil, false, "", err
 	}
 	defer resp.Body.Close()
@@ -137,15 +120,14 @@ func (dbConn *DBCONN) AuthenticateU2F(username, hostname, trasaID, totp string, 
 		return
 	}
 
-	fmt.Printf("resp body was: %s\n", string(body))
+	//fmt.Printf("resp body was: %s\n", string(body))
 
 	err = json.Unmarshal([]byte(body), &trasaResp)
 	if err != nil {
-		fmt.Println("invalid response from trasa server")
+		logger.Error("invalid response from trasa server")
 		return nil, false, "", errors.New("Failed to authenticate 2fa")
 	}
 
-	//fmt.Printf("status was: %s\n", result.Password)
 	if trasaResp.Status == "success" && len(trasaResp.Data) == 3 {
 
 		uc, _ := json.Marshal(trasaResp.Data[0])
@@ -159,7 +141,7 @@ func (dbConn *DBCONN) AuthenticateU2F(username, hostname, trasaID, totp string, 
 
 		return upCreds, sessionRecord, sessionID, nil
 	} else {
-		//fmt.Println(string(body))
+		//logger.Trace(string(body))
 		return nil, false, "", errors.New("Failed to authenticate 2fa")
 	}
 }

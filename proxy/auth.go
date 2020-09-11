@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"fmt"
 	"github.com/seknox/trasadbproxy/vitess/go/mysql"
 	"net"
 )
@@ -20,9 +19,9 @@ func (tas *TrasaAuthServer) ValidateHash(salt []byte, user string, authResponse 
 
 	userData := &mysql.StaticUserData{}
 
-	fmt.Println(string(authResponse), "Validate hasgh________________________")
+	//logger.Trace(string(authResponse), "Validate hasgh________________________")
 
-	//fmt.Println(user)
+	//logger.Trace(user)
 	//username, hostname, _, totp, err := getAuthData(user)
 	//if err != nil {
 	//	return userData, err
@@ -46,12 +45,13 @@ func (tas *TrasaAuthServer) AuthMethod(user string) (string, error) {
 }
 
 func (tas *TrasaAuthServer) Negotiate(c *mysql.Conn, user string, remoteAddr net.Addr) (mysql.Getter, error) {
-	fmt.Println(c)
-	fmt.Println(user)
-	fmt.Println("Negotitaing ______")
+	//logger.Trace(c)
+	//logger.Trace(user)
+	//logger.Trace("Negotitaing ______")
 
 	password, err := mysql.AuthServerNegotiateClearOrDialog(c, tas.Method)
-	fmt.Println(password, err, "Nego")
+	_, _ = password, err
+	//logger.Trace(password, err, "Nego")
 	//c.ClientData=dbstore.TrasaUserData{
 	//	Password:password,
 	//}

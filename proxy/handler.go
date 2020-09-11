@@ -59,7 +59,7 @@ func (th *proxyHandler) ConnectionClosed(c *mysql.Conn) {
 }
 
 func (th *proxyHandler) ComInitDB(c *mysql.Conn, schemaName string) {
-	fmt.Println("________com______InitDB ", schemaName)
+	logger.Trace("InitDB ", schemaName)
 
 	//if database is selected in initial connection request, use that database
 	if schemaName != "" {
@@ -158,7 +158,7 @@ func (th *proxyHandler) InitTrasaAuth(c *mysql.Conn, salt []byte, user string, c
 	}
 	proxyMeta.Username = username
 
-	//Authenticate to TRASA server and get user/app details based on hostname
+	//Authenticate to TRASA server and get credentials,sessionID,sessionRecord policy  based on hostname
 	resp, sessionRecord, sessionID, err := dbstore.DBState.AuthenticateU2F(username, hostname, trasaID, totp, c.RemoteAddr())
 	if err != nil {
 		logger.Trace(err)
@@ -168,7 +168,7 @@ func (th *proxyHandler) InitTrasaAuth(c *mysql.Conn, salt []byte, user string, c
 	proxyMeta.SessionID = sessionID
 	proxyMeta.SessionRecord = sessionRecord
 
-	logger.Debug("session record ", proxyMeta.SessionRecord)
+	//logger.Debug("session record ", proxyMeta.SessionRecord)
 
 	//Create upstream connection
 	params := mysql.ConnParams{
