@@ -43,22 +43,17 @@ func (dbConn *DBCONN) Init() {
 
 	dbConn.trasaServer = viper.GetString("trasa.listenAddr")
 
-	//fmt.Println(dbConn.trasaServer)
-
 	dbConn.orgId = viper.GetString("trasa.orgID")
 
 	minioHostName := viper.GetString("minio.server")
-	//minioAccessKeyID := "250PUJKB2AZ436RFO2T1"
-	//minioSecretAccessKey := "QFVd5huA9OgbSTGQAk1cNan7GJAInViUmgifRefi"
 	minioAccessKeyID := viper.GetString("minio.key")
 	minioSecretAccessKey := viper.GetString("minio.secret")
 	useSSL := viper.GetBool("minio.useSSL")
+	insecureSkipVerify := viper.GetBool("security.insecureSkipVerify")
 
-	//elasticport := viper.GetString("elastic.port")
-	// commented out because our server is prroxied via nginx.	elasticport := viper.GetString("elastic.port")
 	insecure := &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureSkipVerify},
 		},
 	}
 	_ = insecure
