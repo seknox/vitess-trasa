@@ -1,10 +1,10 @@
 package proxy
 
 import (
-	"gitlab.com/seknox/trasa/trasadbproxy/dbstore"
-	"gitlab.com/seknox/trasa/trasadbproxy/vitess/go/mysql"
-	"gitlab.com/seknox/trasa/trasadbproxy/vitess/go/sync2"
-	"gitlab.com/seknox/trasa/trasadbproxy/vitess/go/vt/vttls"
+	"github.com/seknox/trasadbproxy/dbstore"
+	"github.com/seknox/trasadbproxy/vitess/go/mysql"
+	"github.com/seknox/trasadbproxy/vitess/go/sync2"
+	"github.com/seknox/trasadbproxy/vitess/go/vt/vttls"
 )
 
 func StartListner() {
@@ -35,16 +35,14 @@ func StartListner() {
 	)
 	if err != nil {
 		panic("TLSServerConfig failed:  " + err.Error())
+
 	}
 	l.AllowClearTextWithoutTLS = sync2.AtomicBool{}
 	l.AllowClearTextWithoutTLS.Set(true)
 	l.RequireSecureTransport = false
 	serverConfig.InsecureSkipVerify = true
-	l.TLSConfig = serverConfig
-
-	if err != nil {
-		panic(err)
-	}
+	//l.TLSConfig = serverConfig
+	l.TLSConfig.Store(serverConfig)
 
 	l.Accept()
 

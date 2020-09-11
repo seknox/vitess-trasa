@@ -2,7 +2,7 @@ package proxy
 
 import (
 	"fmt"
-	"gitlab.com/seknox/trasa/trasadbproxy/vitess/go/mysql"
+	"github.com/seknox/trasadbproxy/vitess/go/mysql"
 	"net"
 )
 
@@ -42,7 +42,7 @@ func (tas *TrasaAuthServer) Salt() ([]byte, error) {
 
 func (tas *TrasaAuthServer) AuthMethod(user string) (string, error) {
 
-	return tas.Method, nil // errors.New("Suck it Auth method")
+	return tas.Method, nil
 }
 
 func (tas *TrasaAuthServer) Negotiate(c *mysql.Conn, user string, remoteAddr net.Addr) (mysql.Getter, error) {

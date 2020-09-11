@@ -4,12 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	uuid "github.com/satori/go.uuid"
+	"github.com/seknox/trasadbproxy/dbstore"
+	"github.com/seknox/trasadbproxy/vitess/go/mysql"
+	"github.com/seknox/trasadbproxy/vitess/go/sqltypes"
+	"github.com/seknox/trasadbproxy/vitess/go/vt/proto/query"
 	logger "github.com/sirupsen/logrus"
-	"gitlab.com/seknox/trasa/trasadbproxy/dbstore"
-	"gitlab.com/seknox/trasa/trasadbproxy/vitess/go/mysql"
-	"gitlab.com/seknox/trasa/trasadbproxy/vitess/go/sqltypes"
-	querypb "gitlab.com/seknox/trasa/trasadbproxy/vitess/go/vt/proto/query"
 	"os"
 	"strings"
 	"time"
@@ -49,10 +48,13 @@ func (th *proxyHandler) ConnectionClosed(c *mysql.Conn) {
 	if err != nil {
 		logger.Error(err)
 	}
-	err = os.Remove(proxyMeta.TempLogFile.Name())
-	if err != nil {
-		logger.Error(err)
+	if proxyMeta.TempLogFile != nil {
+		err = os.Remove(proxyMeta.TempLogFile.Name())
+		if err != nil {
+			logger.Error(err)
+		}
 	}
+
 	delete(th.connMap, c)
 }
 
@@ -110,7 +112,6 @@ func (th *proxyHandler) ComQuery(c *mysql.Conn, q string, callback func(*sqltype
 			RowsAffected: 0,
 			InsertID:     0,
 			Rows:         nil,
-			Extras:       nil,
 		})
 		//return nil
 	}
@@ -125,18 +126,18 @@ func (th *proxyHandler) ComQuery(c *mysql.Conn, q string, callback func(*sqltype
 	return err
 }
 
-func (th *proxyHandler) ComPrepare(c *mysql.Conn, q string) ([]*querypb.Field, error) {
-	logger.Debug("________com______Prepare")
+func (th *proxyHandler) ComPrepare(*mysql.Conn, string, map[string]*query.BindVariable) ([]*query.Field, error) {
+	logger.Trace("Prepare")
 	return nil, errors.New("Not Supported yet")
 }
 
 func (th *proxyHandler) ComStmtExecute(c *mysql.Conn, prepare *mysql.PrepareData, callback func(*sqltypes.Result) error) error {
-	logger.Debug("________com______StmtExecute")
+	logger.Trace("StmtExecute")
 	return errors.New("Not Supported yet")
 }
 
 func (th *proxyHandler) ComResetConnection(c *mysql.Conn) {
-	fmt.Println("________com______ResetConnection")
+	logger.Trace("ResetConnection")
 
 }
 
@@ -144,7 +145,7 @@ func (th *proxyHandler) WarningCount(c *mysql.Conn) uint16 {
 	return 0
 }
 
-func (th *proxyHandler) InitTrasaAuth(c *mysql.Conn, salt []byte, user string, authResponse []byte, clearPassword string) error {
+func (th *proxyHandler) InitTrasaAuth(c *mysql.Conn, salt []byte, user string, clearPassword string) error {
 	logger.Trace("InitTrasa", c.ConnectionID, c.ID())
 	var proxyMeta dbstore.ProxyMedata
 	proxyMeta.LoginTime = time.Now()
@@ -158,26 +159,15 @@ func (th *proxyHandler) InitTrasaAuth(c *mysql.Conn, salt []byte, user string, a
 	proxyMeta.Username = username
 
 	//Authenticate to TRASA server and get user/app details based on hostname
-	resp, err := dbstore.DBState.AuthenticateU2F(username, hostname, trasaID, totp, c.RemoteAddr())
+	resp, sessionRecord, sessionID, err := dbstore.DBState.AuthenticateU2F(username, hostname, trasaID, totp, c.RemoteAddr())
 	if err != nil {
 		logger.Trace(err)
 		return err
 	}
-	proxyMeta.Email = resp.Email
-	proxyMeta.AppName = resp.AppName
-	proxyMeta.AppID = resp.AppID
-	proxyMeta.UserID = resp.UserID
-	proxyMeta.SessionRecord = resp.SessionRecord
 
-	//create session ID
-	sessionID := ""
-	tempuuid, err := uuid.NewV4()
-	if err == nil {
-		sessionID = tempuuid.String()
-	} else {
-		logger.Error(err)
-	}
 	proxyMeta.SessionID = sessionID
+	proxyMeta.SessionRecord = sessionRecord
+
 	logger.Debug("session record ", proxyMeta.SessionRecord)
 
 	//Create upstream connection
@@ -204,7 +194,7 @@ func (th *proxyHandler) InitTrasaAuth(c *mysql.Conn, salt []byte, user string, a
 	proxyMeta.UpstreamConn = cc
 
 	//create temp log file
-	tempLogFile, err := os.OpenFile(sessionID+".session", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0755)
+	tempLogFile, err := os.OpenFile(fmt.Sprintf("/tmp/trasa/accessproxy/db/%s.session", sessionID), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0755)
 	if err != nil {
 		logger.Error(err)
 		return err

@@ -1,26 +1,21 @@
 package dbstore
 
 import (
-	minio "github.com/minio/minio-go"
-	"github.com/olivere/elastic"
+	minio "github.com/minio/minio-go/v7"
 	geoip2 "github.com/oschwald/geoip2-golang"
-	"gitlab.com/seknox/trasa/trasadbproxy/vitess/go/mysql"
+	"github.com/seknox/trasadbproxy/vitess/go/mysql"
 	"net"
 	"os"
 	"time"
 )
 
 type DBCONN struct {
-	elasticHostName string
-	minioHostName   string
-	elasticClient   *elastic.Client
-	minioClient     *minio.Client
-	geoDB           *geoip2.Reader
-	orgId           string
-	appID           string
-	appSecret       string
-	trasaServer     string
-	ListenAddr      string
+	minioHostName string
+	minioClient   *minio.Client
+	geoDB         *geoip2.Reader
+	orgId         string
+	trasaServer   string
+	ListenAddr    string
 }
 
 type AppLogin struct {
@@ -129,11 +124,6 @@ type GuacResponse struct {
 
 type ProxyMedata struct {
 	ClientAddr    net.Addr
-	ServerAddr    net.Addr
-	AppName       string
-	AppID         string
-	UserID        string
-	Email         string
 	SessionID     string
 	Username      string
 	ClientVersion string

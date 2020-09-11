@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/seknox/trasadbproxy/proxy"
 	logger "github.com/sirupsen/logrus"
-	"gitlab.com/seknox/trasa/trasadbproxy/proxy"
 	"os"
 	"path/filepath"
 	"runtime"
