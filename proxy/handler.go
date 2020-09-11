@@ -14,6 +14,7 @@ import (
 	"time"
 )
 
+//proxyHandler is a custom implementation of mysql.Handler
 type proxyHandler struct {
 	connMap  map[*mysql.Conn]dbstore.ProxyMedata
 	lastConn *mysql.Conn
@@ -145,15 +146,16 @@ func (th *proxyHandler) WarningCount(c *mysql.Conn) uint16 {
 	return 0
 }
 
+//InitTrasaAuth handles TRASA authentication and sets up upstream connection
 func (th *proxyHandler) InitTrasaAuth(c *mysql.Conn, salt []byte, user string, clearPassword string) error {
-	logger.Trace("InitTrasa", c.ConnectionID, c.ID())
+	//logger.Trace("InitTrasa", c.ConnectionID, c.ID())
 	var proxyMeta dbstore.ProxyMedata
 	proxyMeta.LoginTime = time.Now()
 	proxyMeta.ClientAddr = c.RemoteAddr()
 	//split user string to get username,hostname,trasaID and totp
 	username, hostname, trasaID, totp, err := getAuthData(user)
 	if err != nil {
-		logger.Trace(err)
+		logger.Debug(err)
 		return err
 	}
 	proxyMeta.Username = username
@@ -206,7 +208,7 @@ func (th *proxyHandler) InitTrasaAuth(c *mysql.Conn, salt []byte, user string, c
 	return nil
 }
 
-//splits user strings into username, hostname, trasaID, totp
+//getAuthData splits user strings into username, hostname, trasaID, totp
 func getAuthData(user string) (username, hostname, trasaID, totp string, err error) {
 	authData := strings.Split(user, ":")
 	switch len(authData) {

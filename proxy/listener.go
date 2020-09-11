@@ -14,12 +14,7 @@ func StartListner() {
 	handler := NewProxyHandler()
 
 	authServer := NewTrasaAuthServer()
-	//authServer.Method = mysql.MysqlNativePassword
-	//authServer.Entries["root"] = []*mysql.AuthServerStaticEntry{
-	//	{Password: "password"},
-	//}
 
-	//authServer := NewTrasaAuthServer()
 	authServer.Method = mysql.MysqlClearPassword
 
 	l, err := mysql.NewListener("tcp", dbstore.DBState.ListenAddr, authServer, handler, 0, 0, false)

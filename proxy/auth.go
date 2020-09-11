@@ -19,18 +19,6 @@ func (tas *TrasaAuthServer) ValidateHash(salt []byte, user string, authResponse 
 
 	userData := &mysql.StaticUserData{}
 
-	//logger.Trace(string(authResponse), "Validate hasgh________________________")
-
-	//logger.Trace(user)
-	//username, hostname, _, totp, err := getAuthData(user)
-	//if err != nil {
-	//	return userData, err
-	//}
-	//_ = username
-	//_ = hostname
-	//_ = totp
-	////dbstore.DBState.AuthenticateU2F(username,hostname,nil,totp,"sakjhd","asdsa",false)
-
 	return userData, nil //errors.New("Suck it validate hash")
 }
 
@@ -45,9 +33,6 @@ func (tas *TrasaAuthServer) AuthMethod(user string) (string, error) {
 }
 
 func (tas *TrasaAuthServer) Negotiate(c *mysql.Conn, user string, remoteAddr net.Addr) (mysql.Getter, error) {
-	//logger.Trace(c)
-	//logger.Trace(user)
-	//logger.Trace("Negotitaing ______")
 
 	password, err := mysql.AuthServerNegotiateClearOrDialog(c, tas.Method)
 	_, _ = password, err
