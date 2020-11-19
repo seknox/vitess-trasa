@@ -13,9 +13,11 @@ import (
 	"github.com/seknox/trasa/server/models"
 	logger "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 )
@@ -23,6 +25,7 @@ import (
 var DBState DBCONN
 
 func (dbConn *DBCONN) Init() {
+	os.MkdirAll("/tmp/trasa/accessproxy/db", os.ModePerm)
 
 	viper.SetConfigName("config")
 	absPath, _ := filepath.Abs("/etc/trasa/config/")
@@ -42,28 +45,32 @@ func (dbConn *DBCONN) Init() {
 	dbConn.orgId = viper.GetString("trasa.orgID")
 
 	minioHostName := viper.GetString("minio.server")
+	minioStatus := viper.GetBool("minio.status")
 	minioAccessKeyID := viper.GetString("minio.key")
 	minioSecretAccessKey := viper.GetString("minio.secret")
 	useSSL := viper.GetBool("minio.useSSL")
 	dbConn.insecureSkipVerify = viper.GetBool("security.insecureSkipVerify")
 
-	// Initialize minio client object.
-	dbConn.minioClient, err = minio.New(minioHostName, &minio.Options{
-		Creds:  credentials.NewStaticV4(minioAccessKeyID, minioSecretAccessKey, ""),
-		Secure: useSSL,
-	})
-	if err != nil {
-		panic(err)
+	if minioStatus {
+		// Initialize minio client object.
+		dbConn.minioClient, err = minio.New(minioHostName, &minio.Options{
+			Creds:  credentials.NewStaticV4(minioAccessKeyID, minioSecretAccessKey, ""),
+			Secure: useSSL,
+		})
+		if err != nil {
+			panic(err)
 
-	}
+		}
 
-	exists, err := dbConn.minioClient.BucketExists(context.Background(), "trasa-db-logs")
-	if err != nil {
-		panic(err)
-	}
+		exists, err := dbConn.minioClient.BucketExists(context.Background(), "trasa-db-logs")
+		if err != nil {
+			panic(err)
+		}
 
-	if !exists {
-		dbConn.minioClient.MakeBucket(context.Background(), "trasa-db-logs", minio.MakeBucketOptions{})
+		if !exists {
+			dbConn.minioClient.MakeBucket(context.Background(), "trasa-db-logs", minio.MakeBucketOptions{})
+		}
+
 	}
 
 }
@@ -150,25 +157,60 @@ func (dbConn *DBCONN) LogSession(proxyMeta ProxyMedata, success bool) (err error
 
 	bucketName := "trasa-db-logs"
 	objectNamePrefix := dbConn.orgId + "/" + strconv.Itoa(proxyMeta.LoginTime.Year()) + "/" + strconv.Itoa(int(proxyMeta.LoginTime.Month())) + "/" + strconv.Itoa(proxyMeta.LoginTime.Day()) + "/"
-
 	if success && proxyMeta.TempLogFile != nil {
 		// Upload the zip file
 		objectName := objectNamePrefix + filepath.Base(proxyMeta.TempLogFile.Name())
 		filePath := proxyMeta.TempLogFile.Name()
-		contentType :=
 
-			"text/plain"
-
-		logger.Trace(objectName)
-		// Upload log file to minio
-		n, err := dbConn.minioClient.FPutObject(context.Background(), bucketName, objectName, filePath, minio.PutObjectOptions{ContentType: contentType})
+		err := dbConn.PutIntoMinio(objectName, filePath, bucketName)
 		if err != nil {
 			logger.Error(err)
 			return err
 		}
-		logger.Tracef("Successfully uploaded %s of size %d  to minio", objectName, n.Size)
-
 	}
 
+	return nil
+
+}
+
+func (dbConn *DBCONN) PutIntoMinio(objectName, logfilepath, bucketName string) error {
+	// Upload log file to minio
+	minioStatus := viper.GetBool("minio.status")
+
+	if minioStatus {
+		_, err := dbConn.minioClient.FPutObject(context.Background(), bucketName, objectName, logfilepath, minio.PutObjectOptions{})
+		return err
+	}
+	newpath := filepath.Join("/var", "trasa", "sessions", bucketName, objectName)
+	dir, _ := filepath.Split(newpath)
+	err := os.MkdirAll(dir, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	return moveFile(logfilepath, newpath)
+
+}
+
+func moveFile(sourcePath, destPath string) error {
+	inputFile, err := os.Open(sourcePath)
+	if err != nil {
+		return fmt.Errorf("Couldn't open source file: %s", err)
+	}
+	outputFile, err := os.Create(destPath)
+	if err != nil {
+		inputFile.Close()
+		return fmt.Errorf("Couldn't open dest file: %s", err)
+	}
+	defer outputFile.Close()
+	_, err = io.Copy(outputFile, inputFile)
+	inputFile.Close()
+	if err != nil {
+		return fmt.Errorf("Writing to output file failed: %s", err)
+	}
+	// The copy was successful, so now delete the original file
+	err = os.Remove(sourcePath)
+	if err != nil {
+		return fmt.Errorf("Failed removing original file: %s", err)
+	}
 	return nil
 }

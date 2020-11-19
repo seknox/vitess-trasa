@@ -88,7 +88,7 @@ func (th *proxyHandler) ComQuery(c *mysql.Conn, q string, callback func(*sqltype
 
 	}
 	//execute and fetch result
-	ps, err := upstreamConn.ExecuteFetch(q, 10000, true)
+	ps, err := upstreamConn.ExecuteFetch(q, 1000000000000000000, true)
 	if err != nil && ps == nil {
 		logger.Error(err)
 		return err
